@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  background-color: #030712;
+}
+
+@media (orientation: landscape) {
+  .soundboard-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
