@@ -2,7 +2,7 @@
 
 PWA (Progressive Web App) para controlar o OBS Studio direto do celular, na mesma rede
 local, sem precisar sair do jogo ou ir até o computador. Conecta no OBS via
-**OBS WebSocket v5** e oferece 5 módulos:
+**OBS WebSocket v5** e oferece 6 módulos:
 
 - 🔊 **Soundboard** — grade de botões que disparam sons (hotkeys do OBS).
 - 🎬 **Cenas** — troca a cena ativa.
@@ -10,6 +10,9 @@ local, sem precisar sair do jogo ou ir até o computador. Conecta no OBS via
   novas e reseleciona a janela/processo de fontes de captura (ex: corrigir a captura de
   áudio do Discord sem minimizar o jogo).
 - 🎚 **Mixer** — controla volume e mute das fontes de áudio.
+- 🔴 **Lives** — inicia/para a saída primária do OBS (`StartStream`) e cada saída extra
+  do **Aitum Multistream** (Twitch, TikTok, etc.), com um "Iniciar tudo" que sobe a
+  primária, espera ela entrar no ar e liga as demais na ordem.
 - ⚙️ **Configurações** — define o IP/porta do OBS e a senha de autenticação, tudo pelo
   próprio app.
 
@@ -36,6 +39,21 @@ local, sem precisar sair do jogo ou ir até o computador. Conecta no OBS via
    - Instale o plugin Soundboard Dock no OBS e cadastre seus sons nele normalmente.
    - Sem esse plugin instalado (ou sem nenhum som cadastrado nele), o botão
      "🔄 Sincronizar sons" do app não vai encontrar nada — isso é esperado, não é bug.
+4. **Plugin "Aitum Multistream"** (⚠️ **obrigatório só para as saídas extras do módulo
+   Lives** — iniciar/parar a saída primária do OBS funciona com o OBS puro):
+   - A parte "Aitum Multistream" do módulo Lives usa um **vendor obs-websocket**
+     (`aitum-multistream`) que **não existe nas releases oficiais** do plugin. É preciso
+     a build do **fork com o vendor**:
+     <https://github.com/w0rxbend/obs-aitum-multistream> (PR #19 do repo oficial).
+   - Requests usados: `status`, `get_outputs`, `start_output {name}`,
+     `stop_output {name}`; evento `output_state_changed` mantém o app em sincronia com
+     os cliques feitos no dock do OBS.
+   - Com o plugin **oficial** (sem o vendor) instalado, o app detecta a ausência e a
+     seção "Aitum Multistream" some sozinha — sobra só o controle da saída primária.
+   - **Backup antes de trocar o plugin:** a config fica em
+     `%APPDATA%\obs-studio\plugin_config\aitum-multistream\config.json` (perfis, saídas
+     e **stream keys em texto puro** — trate como segredo). O binário oficial fica em
+     `<OBS>\obs-plugins\64bit\aitum-multistream.dll`.
 
 ### Para rodar o app
 - **Node.js 18+** e `npm` instalados no computador que vai servir o app (pode ser o
@@ -155,6 +173,31 @@ direto no OBS, o app atualiza sozinho.
 Lista as fontes de áudio com um slider de volume (0–100%) e botão de mute (🔊/🔇),
 sincronizado em tempo real com o que acontece no OBS (se você mexer direto no mixer do
 OBS, o app reflete a mudança).
+
+### 🔴 Lives
+Controla o "ir ao ar" pelo celular, em duas partes:
+
+- **Saída primária do OBS** — botão iniciar/parar (`StartStream`/`StopStream`), bolinha
+  de status (verde / amarelo piscando = reconectando) e cronômetro ao vivo. É a
+  transmissão que o Twitch, o YouTube e as saídas do Aitum sem encoder próprio precisam
+  ter no ar primeiro.
+- **Saídas do Aitum Multistream** — uma linha por saída configurada no dock do Aitum
+  (Twitch, TikTok, etc.), com emoji da plataforma, status e botão Iniciar/Parar. Saída
+  marcada como `requires_main` fica bloqueada com aviso enquanto a primária não está no
+  ar. Cliques no dock do OBS refletem no app na hora (evento `output_state_changed`), e
+  vice-versa. Sem o plugin com o vendor, essa seção não aparece.
+- **Iniciar tudo / Parar tudo** — "Iniciar tudo" sobe a primária, espera ela entrar no
+  ar (timeout ~20s) e liga cada saída do Aitum na sequência; "Parar tudo" faz o inverso.
+
+**YouTube como saída primária:** o popup "Gerenciar Transmissão → Criar e iniciar" do
+OBS **não é automatizável** por obs-websocket (limitação do OBS, não do app). Para o
+`StartStream` funcionar direto, use serviço **Personalizado** no OBS com a **chave de
+transmissão reutilizável** do YouTube e ligue **"Iniciar automaticamente"** no YouTube
+Studio — aí a live sobe sozinha quando a saída primária entra no ar. Criar uma
+transmissão nova (título/miniatura dinâmicos) pelo celular exigiria um backend com a
+YouTube Live Streaming API — não implementado.
+
+O módulo Lives não grava nada em `localStorage`.
 
 ### ⚙️ Configurações
 IP/porta e senha do WebSocket, com teste de conexão antes de salvar (ver seção

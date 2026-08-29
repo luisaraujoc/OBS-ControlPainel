@@ -5,6 +5,7 @@ import SoundboardView from './components/SoundboardView';
 import ScenesView from './components/ScenesView';
 import SourcesView from './components/SourcesView';
 import AudioMixerView from './components/AudioMixerView';
+import LivesView from './components/LivesView';
 import SettingsView from './components/SettingsView';
 import LogPanel from './components/LogPanel';
 import { useOBSWebSocket } from './hooks/useOBSWebSocket';
@@ -48,6 +49,7 @@ export default function App() {
       {view === 'scenes' && <ScenesView obs={obs} />}
       {view === 'sources' && <SourcesView obs={obs} />}
       {view === 'mixer' && <AudioMixerView obs={obs} />}
+      {view === 'lives' && <LivesView obs={obs} />}
       {view === 'settings' && <SettingsView obs={obs} />}
 
       {showLogs && <LogPanel onClose={() => setShowLogs(false)} />}

@@ -3,8 +3,11 @@ const MODULES = [
   { view: 'scenes', icon: '🎬', label: 'Cenas' },
   { view: 'sources', icon: '👁', label: 'Fontes' },
   { view: 'mixer', icon: '🎚', label: 'Mixer' },
+  { view: 'lives', icon: '🔴', label: 'Lives' },
   { view: 'settings', icon: '⚙️', label: 'Configurações' },
 ];
+
+const WIDE = new Set(['lives', 'settings']);
 
 export default function Home({ onSelect }) {
   return (
@@ -14,7 +17,7 @@ export default function Home({ onSelect }) {
           <button
             key={mod.view}
             onClick={() => onSelect(mod.view)}
-            className={`${mod.view === 'settings' ? 'col-span-2 aspect-[2/1]' : 'aspect-square'} flex flex-col items-center justify-center gap-2 rounded-2xl bg-gray-800 text-white shadow-md active:scale-95 active:bg-gray-700 transition-transform`}
+            className={`${WIDE.has(mod.view) ? 'col-span-2 aspect-[2/1]' : 'aspect-square'} flex flex-col items-center justify-center gap-2 rounded-2xl bg-gray-800 text-white shadow-md active:scale-95 active:bg-gray-700 transition-transform`}
           >
             <span className="text-4xl">{mod.icon}</span>
             <span className="text-base font-semibold">{mod.label}</span>

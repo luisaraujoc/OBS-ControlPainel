@@ -222,6 +222,21 @@ export function useOBSWebSocket() {
     return obs.call(request, params);
   }, [connected]);
 
+  // Chama um request de um plugin (vendor) do obs-websocket e já devolve o
+  // responseData do próprio plugin, sem o envelope do CallVendorRequest.
+  const callVendor = useCallback(async (vendorName, requestType, requestData) => {
+    const obs = obsRef.current;
+    if (!obs || !connected) {
+      throw new Error(`OBS não conectado (vendor ${vendorName}: ${requestType})`);
+    }
+    const res = await obs.call('CallVendorRequest', {
+      vendorName,
+      requestType,
+      requestData: requestData || {},
+    });
+    return res?.responseData || {};
+  }, [connected]);
+
   const on = useCallback((event, handler) => {
     const obs = obsRef.current;
     if (!obs) return () => {};
@@ -242,6 +257,7 @@ export function useOBSWebSocket() {
     pauseAllSounds,
     discoverSoundboardButtons,
     call,
+    callVendor,
     on,
   };
 }
