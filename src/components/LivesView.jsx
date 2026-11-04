@@ -8,12 +8,17 @@ function fmtDuration(ms) {
   return `${h}:${m}:${s}`;
 }
 
-function platformEmoji(server = '') {
-  if (/twitch\.tv|live-video\.net/i.test(server)) return '🟣';
-  if (/youtube\.com/i.test(server)) return '🔴';
-  if (/tiktok|restream/i.test(server)) return '⚫';
-  if (/facebook|fbcdn/i.test(server)) return '🔵';
-  if (/kick/i.test(server)) return '🟢';
+// O vendor do Aitum Stream Suite não devolve mais a URL do servidor RTMP
+// (stream_server), então a plataforma é adivinhada pelo nome da saída —
+// é o único dado que sobrou pra isso, e os nomes já vêm descritivos
+// ("Saída YouTube", "Bkp YouTube", "Saída Kick"...).
+function platformEmoji(outputName = '') {
+  if (/twitch/i.test(outputName)) return '🟣';
+  if (/youtube/i.test(outputName)) return '🔴';
+  if (/tiktok/i.test(outputName)) return '⚫';
+  if (/facebook/i.test(outputName)) return '🔵';
+  if (/kick/i.test(outputName)) return '🟢';
+  if (/restream/i.test(outputName)) return '🔁';
   return '📡';
 }
 
@@ -76,10 +81,10 @@ export default function LivesView({ obs }) {
           </button>
         </div>
 
-        {/* Saídas do Aitum Multistream */}
+        {/* Saídas do Aitum Stream Suite */}
         <div>
           <div className="flex items-center justify-between mb-2 px-1">
-            <h2 className="text-sm font-semibold text-gray-300">Aitum Multistream</h2>
+            <h2 className="text-sm font-semibold text-gray-300">Aitum Stream Suite</h2>
             {multistream.available && multistream.version && (
               <span className="text-[10px] text-gray-500">v{multistream.version}</span>
             )}
@@ -91,50 +96,42 @@ export default function LivesView({ obs }) {
 
           {multistream.available === false && (
             <p className="text-center text-gray-400 text-sm bg-gray-900 rounded-xl p-4">
-              O Aitum Multistream instalado não expõe controle via obs-websocket
-              (precisa da build do PR #19). Só a saída primária fica disponível aqui.
+              O Aitum Stream Suite instalado não expõe controle via obs-websocket.
+              Só a saída primária fica disponível aqui.
             </p>
           )}
 
           {multistream.available && outputs.length === 0 && (
             <p className="text-center text-gray-400 text-sm bg-gray-900 rounded-xl p-4">
-              Nenhuma saída configurada no dock do Aitum Multistream.
+              Nenhuma saída configurada no Aitum Stream Suite.
             </p>
           )}
 
           <div className="flex flex-col gap-2">
-            {outputs.map((o) => {
-              const blockedByMain = o.requires_main && !primary.active && !o.active;
-              return (
-                <div key={o.name} className="bg-gray-800 rounded-xl p-3 text-white shadow-md">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${
-                          o.active ? 'bg-green-500' : 'bg-gray-500'
-                        }`}
-                      />
-                      <span className="text-lg shrink-0">{platformEmoji(o.stream_server)}</span>
-                      <span className="font-medium truncate">{o.name}</span>
-                    </div>
-                    <button
-                      onClick={() => (o.active ? lives.stopOutput(o.name) : lives.startOutput(o.name))}
-                      disabled={o.busy || blockedByMain}
-                      className={`text-sm px-3 py-1.5 rounded-lg font-semibold shrink-0 text-white disabled:opacity-40 ${
-                        o.active ? 'bg-red-700 active:bg-red-800' : 'bg-green-600 active:bg-green-700'
+            {outputs.map((o) => (
+              <div key={o.name} className="bg-gray-800 rounded-xl p-3 text-white shadow-md">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${
+                        o.active ? 'bg-green-500' : 'bg-gray-500'
                       }`}
-                    >
-                      {o.busy ? '...' : o.active ? 'Parar' : 'Iniciar'}
-                    </button>
+                    />
+                    <span className="text-lg shrink-0">{platformEmoji(o.name)}</span>
+                    <span className="font-medium truncate">{o.name}</span>
                   </div>
-                  {blockedByMain && (
-                    <p className="text-[11px] text-yellow-500/80 mt-2">
-                      Precisa da saída primária no ar (usa o encoder principal).
-                    </p>
-                  )}
+                  <button
+                    onClick={() => (o.active ? lives.stopOutput(o.name) : lives.startOutput(o.name))}
+                    disabled={o.busy}
+                    className={`text-sm px-3 py-1.5 rounded-lg font-semibold shrink-0 text-white disabled:opacity-40 ${
+                      o.active ? 'bg-red-700 active:bg-red-800' : 'bg-green-600 active:bg-green-700'
+                    }`}
+                  >
+                    {o.busy ? '...' : o.active ? 'Parar' : 'Iniciar'}
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
 
