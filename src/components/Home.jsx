@@ -4,10 +4,13 @@ const MODULES = [
   { view: 'sources', icon: '👁', label: 'Fontes' },
   { view: 'mixer', icon: '🎚', label: 'Mixer' },
   { view: 'lives', icon: '🔴', label: 'Lives' },
+  { view: 'overlays', icon: '🖼️', label: 'Overlays' },
+  { view: 'actions', icon: '🧤', label: 'Ações' },
+  { view: 'chat', icon: '💬', label: 'Chat' },
   { view: 'settings', icon: '⚙️', label: 'Configurações' },
 ];
 
-const WIDE = new Set(['lives', 'settings']);
+const WIDE = new Set(['settings']);
 
 export default function Home({ onSelect }) {
   return (

@@ -229,12 +229,20 @@ export function useOBSWebSocket() {
     if (!obs || !connected) {
       throw new Error(`OBS não conectado (vendor ${vendorName}: ${requestType})`);
     }
-    const res = await obs.call('CallVendorRequest', {
-      vendorName,
-      requestType,
-      requestData: requestData || {},
-    });
-    return res?.responseData || {};
+    logInfo(`→ ${vendorName}: ${requestType}`, requestData || {});
+    try {
+      const res = await obs.call('CallVendorRequest', {
+        vendorName,
+        requestType,
+        requestData: requestData || {},
+      });
+      const data = res?.responseData || {};
+      logInfo(`← ${vendorName}: ${requestType}`, data);
+      return data;
+    } catch (err) {
+      logError(`✗ ${vendorName}: ${requestType} — ${err?.message || err}`, { code: err?.code });
+      throw err;
+    }
   }, [connected]);
 
   const on = useCallback((event, handler) => {

@@ -2,7 +2,8 @@
 
 PWA (Progressive Web App) para controlar o OBS Studio direto do celular, na mesma rede
 local, sem precisar sair do jogo ou ir até o computador. Conecta no OBS via
-**OBS WebSocket v5** e oferece 6 módulos:
+**OBS WebSocket v5** (e, opcionalmente, no **Streamer.bot** via WebSocket Server) e
+oferece 7 módulos:
 
 - 🔊 **Soundboard** — grade de botões que disparam sons (hotkeys do OBS).
 - 🎬 **Cenas** — troca a cena ativa.
@@ -13,8 +14,11 @@ local, sem precisar sair do jogo ou ir até o computador. Conecta no OBS via
 - 🔴 **Lives** — inicia/para a saída primária do OBS (`StartStream`) e cada saída extra
   do **Aitum Multistream** (Twitch, TikTok, etc.), com um "Iniciar tudo" que sobe a
   primária, espera ela entrar no ar e liga as demais na ordem.
-- ⚙️ **Configurações** — define o IP/porta do OBS e a senha de autenticação, tudo pelo
-  próprio app.
+- 🧤 **Ações** — dispara **ações do Streamer.bot** (criar clipe, marcadores, alertas,
+  qualquer trigger que você montar lá) direto do celular, com favoritos. O conector usa
+  o **mesmo IP do OBS**, só muda a porta (padrão `4456`), sem autenticação.
+- ⚙️ **Configurações** — define o IP/porta do OBS e a senha de autenticação, e a porta
+  do Streamer.bot, tudo pelo próprio app.
 
 ---
 
@@ -54,6 +58,17 @@ local, sem precisar sair do jogo ou ir até o computador. Conecta no OBS via
      `%APPDATA%\obs-studio\plugin_config\aitum-multistream\config.json` (perfis, saídas
      e **stream keys em texto puro** — trate como segredo). O binário oficial fica em
      `<OBS>\obs-plugins\64bit\aitum-multistream.dll`.
+5. **Streamer.bot** (⚠️ **obrigatório só para o módulo Ações**):
+   - Baixe em <https://streamer.bot> e rode na **mesma máquina do OBS** (ou em outra na
+     mesma rede — o host é o mesmo IP configurado para o OBS).
+   - Em **Servers/Clients → WebSocket Server**: marque **Enabled** e **Auto Start**,
+     defina a porta (o app usa **`4456`** por padrão) e **deixe a autenticação
+     desligada** (o app não envia credenciais).
+   - O `Address` pode ficar `0.0.0.0` (aceita conexões da rede) ou o IP local da
+     máquina; `127.0.0.1` só funcionaria se o app rodasse na própria máquina.
+   - O app usa os requests `GetInfo` (detecção), `GetActions` (lista) e `DoAction`
+     (disparo). Sem o Streamer.bot no ar, o módulo Ações mostra "Procurando..." e os
+     outros módulos seguem funcionando normalmente.
 
 ### Para rodar o app
 - **Node.js 18+** e `npm` instalados no computador que vai servir o app (pode ser o
@@ -172,7 +187,12 @@ direto no OBS, o app atualiza sozinho.
 ### 🎚 Mixer
 Lista as fontes de áudio com um slider de volume (0–100%) e botão de mute (🔊/🔇),
 sincronizado em tempo real com o que acontece no OBS (se você mexer direto no mixer do
-OBS, o app reflete a mudança).
+OBS, o app reflete a mudança). O valor atual em **dB** aparece ao lado do nome.
+
+Para cravar um nível exato **sem arrastar o slider**: use os botões de preset
+(`0`, `-10`, `-20`, `-30`, `-40`, `-50`, `-60` dB) ou digite um valor no campo `dB` e
+toque em **OK** (aceita de -100 a +26 dB; usa `SetInputVolume` com `inputVolumeDb`). O
+preset que bate com o nível atual fica destacado.
 
 ### 🔴 Lives
 Controla o "ir ao ar" pelo celular, em duas partes:
@@ -199,9 +219,26 @@ YouTube Live Streaming API — não implementado.
 
 O módulo Lives não grava nada em `localStorage`.
 
+### 🧤 Ações
+Painel de **ações do Streamer.bot** para tocar durante a live:
+
+- **Detecção automática** — ao abrir, o app conecta no WebSocket Server do Streamer.bot
+  (mesmo IP do OBS, porta `4456`, sem auth), chama `GetInfo` e mostra a versão
+  detectada. A barra superior ganha um indicador **SB** (verde = conectado).
+- **Lista de ações** — `GetActions` traz todas as ações; elas aparecem agrupadas pelo
+  *group* definido no Streamer.bot, com filtro por texto.
+- **Disparo** — toque numa ação para `DoAction` (vibra e pisca). **Segure (~0,5s)** para
+  favoritar/desfavoritar — as favoritas sobem para o topo em "⭐ Favoritas".
+- **Uso típico** — criar clipe na Twitch/YouTube, marcador de replay, trocar título,
+  disparar alerta/OBS raw, etc. O *que* cada ação faz é montado no Streamer.bot; o app
+  só puxa o gatilho.
+- Persistência: só a lista de favoritas (`streamerbot_action_pins`) e a config de
+  conexão (`streamerbot_connection_settings`) ficam no `localStorage`.
+
 ### ⚙️ Configurações
-IP/porta e senha do WebSocket, com teste de conexão antes de salvar (ver seção
-"Primeiro uso" acima).
+IP/porta e senha do WebSocket do OBS, com teste de conexão antes de salvar (ver seção
+"Primeiro uso" acima). Abaixo, a seção **Streamer.bot**: liga/desliga o conector, define
+a porta (padrão `4456`) e testa a conexão. O host é sempre o mesmo IP do OBS.
 
 ---
 
@@ -213,6 +250,9 @@ nenhum servidor:
 - `discovered_buttons` — a lista de botões gerada automaticamente a partir do
   Soundboard Dock.
 - `obs_connection_settings` — IP/porta/senha configurados na tela de Configurações.
+- `streamerbot_connection_settings` — se o conector do Streamer.bot está ligado e a
+  porta dele.
+- `streamerbot_action_pins` — ids das ações do Streamer.bot marcadas como favoritas.
 
 Limpar os dados do site no navegador (ou desinstalar o app) apaga tudo isso e volta ao
 padrão do `.env`.
@@ -231,6 +271,10 @@ padrão do `.env`.
 - **Botão de selecionar janela/processo dá erro ao abrir**: a propriedade que o app
   pede pro OBS pode variar um pouco entre versões/tipos de fonte — copie a mensagem de
   erro exata do painel de Logs pra investigar qual é o nome certo pra sua versão.
+- **Módulo Ações fica em "Procurando Streamer.bot..."**: confira que o WebSocket Server
+  do Streamer.bot está **Enabled**, na porta certa (padrão `4456`), com **autenticação
+  desligada** e `Address` em `0.0.0.0` (ou o IP local). Use "Testar Streamer.bot" em
+  Configurações. O painel de Logs mostra cada `GetInfo`/`GetActions`/`DoAction`.
 
 ---
 

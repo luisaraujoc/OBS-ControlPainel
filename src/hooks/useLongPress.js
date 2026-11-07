@@ -3,11 +3,18 @@ import { useRef, useCallback } from 'react';
 const LONG_PRESS_MS = 500;
 const MOVE_CANCEL_PX = 15;
 
+const GHOST_MOUSE_MS = 700;
+
 export function useLongPress(onLongPress, onClick) {
   const timerRef = useRef(null);
   const firedRef = useRef(false);
   const movedRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
+  // Num toque, o navegador dispara eventos de mouse "fantasma" logo depois do
+  // touchend (mousedown/mouseup/click). Sem isso, cada toque acionava o botão
+  // duas vezes. Guardamos o instante do último touchend pra ignorá-los.
+  const lastTouchEndRef = useRef(0);
+  const isGhostMouse = () => Date.now() - lastTouchEndRef.current < GHOST_MOUSE_MS;
 
   const clear = useCallback(() => {
     if (timerRef.current) {
@@ -43,9 +50,18 @@ export function useLongPress(onLongPress, onClick) {
   }, [clear, onClick]);
 
   return {
-    onMouseDown: (e) => start(e.clientX, e.clientY),
-    onMouseMove: (e) => move(e.clientX, e.clientY),
-    onMouseUp: end,
+    onMouseDown: (e) => {
+      if (isGhostMouse()) return;
+      start(e.clientX, e.clientY);
+    },
+    onMouseMove: (e) => {
+      if (isGhostMouse()) return;
+      move(e.clientX, e.clientY);
+    },
+    onMouseUp: () => {
+      if (isGhostMouse()) return;
+      end();
+    },
     onMouseLeave: clear,
     onTouchStart: (e) => {
       const t = e.touches[0];
@@ -55,7 +71,12 @@ export function useLongPress(onLongPress, onClick) {
       const t = e.touches[0];
       move(t.clientX, t.clientY);
     },
-    onTouchEnd: end,
+    onTouchEnd: (e) => {
+      lastTouchEndRef.current = Date.now();
+      // Suprime o clique-fantasma que o navegador geraria a seguir.
+      if (e.cancelable) e.preventDefault();
+      end();
+    },
     onTouchCancel: clear,
   };
 }

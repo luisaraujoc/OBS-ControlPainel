@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { streamerBotUrlFromObs } from '../hooks/useStreamerBot';
 
 function normalizeUrl(input) {
   const trimmed = input.trim();
@@ -6,7 +7,7 @@ function normalizeUrl(input) {
   return `ws://${trimmed}`;
 }
 
-export default function SettingsView({ obs }) {
+export default function SettingsView({ obs, sb }) {
   const [url, setUrl] = useState(obs.settings.url.replace(/^wss?:\/\//i, ''));
   const [authEnabled, setAuthEnabled] = useState(Boolean(obs.settings.password));
   const [password, setPassword] = useState(obs.settings.password || '');
@@ -15,6 +16,30 @@ export default function SettingsView({ obs }) {
   const [saved, setSaved] = useState(false);
 
   const effectivePassword = authEnabled ? password : '';
+
+  const [sbPort, setSbPort] = useState(String(sb?.settings?.port ?? 4456));
+  const [sbTesting, setSbTesting] = useState(false);
+  const [sbTestResult, setSbTestResult] = useState(null);
+
+  const sbUrlPreview = streamerBotUrlFromObs(normalizeUrl(url), Number(sbPort) || 4456);
+
+  const handleSbToggle = (checked) => {
+    sb.updateSettings({ enabled: checked });
+    setSbTestResult(null);
+  };
+
+  const handleSbSavePort = () => {
+    sb.updateSettings({ port: Number(sbPort) || 4456 });
+    setSbTestResult(null);
+  };
+
+  const handleSbTest = async () => {
+    setSbTesting(true);
+    setSbTestResult(null);
+    const result = await sb.testConnection(sbUrlPreview);
+    setSbTestResult(result);
+    setSbTesting(false);
+  };
 
   const handleTest = async () => {
     setTesting(true);
@@ -107,6 +132,69 @@ export default function SettingsView({ obs }) {
             💾 Configuração salva. O app vai reconectar automaticamente com o novo endereço.
           </div>
         )}
+
+        <hr className="border-gray-800 my-2" />
+
+        <div>
+          <h2 className="text-white font-semibold mb-1">Streamer.bot</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Usa o mesmo IP do OBS, só muda a porta. WebSocket Server sem autenticação.
+          </p>
+
+          <label className="flex items-center gap-2 text-white select-none mb-3">
+            <input
+              type="checkbox"
+              checked={sb?.enabled ?? true}
+              onChange={(e) => handleSbToggle(e.target.checked)}
+              className="w-4 h-4"
+            />
+            Conector do Streamer.bot ligado
+          </label>
+
+          <label className="block text-sm mb-1 text-gray-300">Porta do WebSocket Server</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={sbPort}
+              onChange={(e) => setSbPort(e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="4456"
+              className="flex-1 px-3 py-2 rounded bg-gray-800 text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            />
+            <button
+              onClick={handleSbSavePort}
+              className="px-3 py-2 rounded bg-blue-700 active:bg-blue-600 text-white font-medium"
+            >
+              Salvar
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1 font-mono break-all">{sbUrlPreview}</p>
+
+          <button
+            onClick={handleSbTest}
+            disabled={sbTesting}
+            className="w-full mt-2 px-3 py-2 rounded bg-gray-700 active:bg-gray-600 disabled:opacity-40 text-white font-medium"
+          >
+            {sbTesting ? 'Testando...' : 'Testar Streamer.bot'}
+          </button>
+
+          {sbTestResult && (
+            <div
+              className={`rounded-lg p-3 text-sm mt-2 ${
+                sbTestResult.ok ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'
+              }`}
+            >
+              {sbTestResult.ok ? (
+                <>
+                  ✅ Streamer.bot respondeu
+                  {sbTestResult.info?.version ? ` (v${sbTestResult.info.version})` : ''}!
+                </>
+              ) : (
+                <>❌ {sbTestResult.error}</>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

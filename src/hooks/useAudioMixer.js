@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { logError, logInfo } from '../utils/logger';
 
+// OBS aceita de -100 dB (mudo) a +26 dB (ganho).
+export const DB_MIN = -100;
+export const DB_MAX = 26;
+
+export const dbToMul = (db) => (db <= DB_MIN ? 0 : 10 ** (db / 20));
+export const mulToDb = (mul) => (mul <= 0 ? DB_MIN : 20 * Math.log10(mul));
+
 export function useAudioMixer({ connected, call, on }) {
   const [inputs, setInputs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,13 +19,14 @@ export function useAudioMixer({ connected, call, on }) {
       const audioInputs = [];
       for (const input of allInputs) {
         try {
-          const [{ inputVolumeMul }, { inputMuted }] = await Promise.all([
+          const [{ inputVolumeMul, inputVolumeDb }, { inputMuted }] = await Promise.all([
             call('GetInputVolume', { inputName: input.inputName }),
             call('GetInputMute', { inputName: input.inputName }),
           ]);
           audioInputs.push({
             inputName: input.inputName,
             volumeMul: inputVolumeMul,
+            volumeDb: inputVolumeDb,
             muted: inputMuted,
           });
         } catch {
@@ -38,9 +46,13 @@ export function useAudioMixer({ connected, call, on }) {
     if (connected) refresh();
   }, [connected, refresh]);
 
-  useEffect(() => on('InputVolumeChanged', ({ inputName, inputVolumeMul }) => {
+  useEffect(() => on('InputVolumeChanged', ({ inputName, inputVolumeMul, inputVolumeDb }) => {
     setInputs((prev) =>
-      prev.map((i) => (i.inputName === inputName ? { ...i, volumeMul: inputVolumeMul } : i))
+      prev.map((i) =>
+        i.inputName === inputName
+          ? { ...i, volumeMul: inputVolumeMul, volumeDb: inputVolumeDb }
+          : i
+      )
     );
   }), [on]);
 
@@ -52,12 +64,32 @@ export function useAudioMixer({ connected, call, on }) {
 
   const setVolume = useCallback(async (inputName, volumeMul) => {
     setInputs((prev) =>
-      prev.map((i) => (i.inputName === inputName ? { ...i, volumeMul } : i))
+      prev.map((i) =>
+        i.inputName === inputName ? { ...i, volumeMul, volumeDb: mulToDb(volumeMul) } : i
+      )
     );
     try {
       await call('SetInputVolume', { inputName, inputVolumeMul: volumeMul });
     } catch (err) {
       logError(`Falha ao ajustar volume de "${inputName}": ${err?.message || err}`);
+    }
+  }, [call]);
+
+  // Define o volume por um valor exato em dB (ex: -10, -50), sem usar o slider.
+  const setVolumeDb = useCallback(async (inputName, db) => {
+    const clamped = Math.min(DB_MAX, Math.max(DB_MIN, db));
+    setInputs((prev) =>
+      prev.map((i) =>
+        i.inputName === inputName
+          ? { ...i, volumeDb: clamped, volumeMul: dbToMul(clamped) }
+          : i
+      )
+    );
+    try {
+      await call('SetInputVolume', { inputName, inputVolumeDb: clamped });
+      logInfo(`Volume de "${inputName}" definido em ${clamped.toFixed(1)} dB.`);
+    } catch (err) {
+      logError(`Falha ao definir volume de "${inputName}" em ${db} dB: ${err?.message || err}`);
     }
   }, [call]);
 
@@ -69,5 +101,5 @@ export function useAudioMixer({ connected, call, on }) {
     }
   }, [call]);
 
-  return { inputs, setVolume, toggleMute, loading };
+  return { inputs, setVolume, setVolumeDb, toggleMute, loading };
 }
